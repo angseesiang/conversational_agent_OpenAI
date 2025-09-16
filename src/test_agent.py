@@ -1,9 +1,15 @@
 import pytest
-from src.agent import ConversationalAgent
+from agent import ConversationalAgent
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 @pytest.fixture
 def agent():
-    return ConversationalAgent(api_key="your-api-key-here")
+    return ConversationalAgent(api_key=os.getenv("OPENAI_API_KEY"))
 
 def test_generate_response(agent):
     user_input = "Tell me a joke."

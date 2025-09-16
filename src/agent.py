@@ -1,75 +1,69 @@
-# src/agent.py
-# Compatible with openai>=1.0.0
-# Loads OPENAI_API_KEY from ./src/.env (or environment)
+from openai import OpenAI
+from typing import Any, Dict
+import json
 
 import os
-from typing import Optional, Dict, Any
-
 from dotenv import load_dotenv
-from openai import OpenAI
 
-try:
-    from openai import APIError, RateLimitError, AuthenticationError, BadRequestError, APITimeoutError
-except Exception:
-    APIError = RateLimitError = AuthenticationError = BadRequestError = APITimeoutError = Exception
-
-# Load env next to this file (fallback to process env)
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
-
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-DEFAULT_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
+load_dotenv()
 
 class ConversationalAgent:
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: str = DEFAULT_MODEL,
-        temperature: float = DEFAULT_TEMPERATURE,
-    ):
-        key = api_key or os.getenv("OPENAI_API_KEY")
-        if not key:
-            raise RuntimeError(
-                "OPENAI_API_KEY is not set. Add it to src/.env or pass api_key to ConversationalAgent()."
-            )
-        self.client = OpenAI(api_key=key)
-        self.model = model
-        self.temperature = temperature
+    """A class to represent a conversational agent using OpenAI API."""
 
-    def generate_response(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        """Generate a response from the OpenAI Chat API."""
-        if not prompt or not prompt.strip():
-            return ""
+    def __init__(self, api_key: str):
+        """
+        Initialize the conversational agent with the given API key.
 
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        Parameters:
+        api_key (str): The API key to access OpenAI API.
+        """
+        self.api_key = api_key
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+    def generate_response(self, user_input: str) -> str:
+        """
+        Generate a response based on the user input using OpenAI API.
+
+        Parameters:
+        user_input (str): The input from the user.
+
+        Returns:
+        str: The generated response from the agent.
+        """
         try:
-            resp = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-            )
-            return resp.choices[0].message.content or ""
-        except AuthenticationError as e:
-            return f"[Auth error] {e}. Check your OPENAI_API_KEY."
-        except RateLimitError as e:
-            return f"[Rate limit] {e}."
-        except BadRequestError as e:
-            return f"[Bad request] {e}"
-        except APITimeoutError as e:
-            return f"[Timeout] {e}"
-        except APIError as e:
-            return f"[API error] {e}"
+            response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user_input},
+                        ],
+                        }
+                    ],
+                    max_tokens=150
+                )
+            return response.choices[0].message.content
         except Exception as e:
-            return f"[Unexpected error] {e}"
+            return f"Error: {str(e)}"
 
     @staticmethod
     def process_parameters(parameters: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process parameters for testing compatibility.
-        Currently just returns the dict unchanged.
-        """
-        return parameters
+        Process parameters provided in JSON format.
 
+        Parameters:
+        parameters (Dict[str, Any]): Parameters in JSON format.
+
+        Returns:
+        Dict[str, Any]: Processed parameters.
+        """
+        # Ensure parameters are in the correct format and types
+        processed_params = {key: str(value) for key, value in parameters.items()}
+        return processed_params
+
+# Example usage
+if __name__ == "__main__":
+    agent = ConversationalAgent(api_key=os.getenv("OPENAI_API_KEY"))
+    user_input = "Tell me a joke."
+    print(agent.generate_response(user_input))
